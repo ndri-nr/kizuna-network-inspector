@@ -1,0 +1,18 @@
+[package]
+name = "kni-rust-core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "kni_rust_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = { workspace = true }
+transport-core = { path = "../transport-core" }
+capture-core = { path = "../capture-core" }
+tls-core = { path = "../tls-core" }
+parser-core = { path = "../parser-core" }
+storage-core = { path = "../storage-core" }
+search-core = { path = "../search-core" }
+serde_cbor = { workspace = true }

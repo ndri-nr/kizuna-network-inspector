@@ -1,0 +1,10 @@
+# Rust build artifacts
+target/
+
+# Backup files
+*.rs.bk
+*.bak
+
+# Cargo local configurations
+.cargo/config.toml
+Cargo.lock

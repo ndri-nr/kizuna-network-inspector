@@ -1,0 +1,21 @@
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and databases
+*.log
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Build output folders at subdirectories
+**/build/
+**/target/
+**/local.properties
+**/.cxx/

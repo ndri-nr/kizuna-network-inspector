@@ -1,0 +1,10 @@
+[package]
+name = "search-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rusqlite = { workspace = true }
+regex = { workspace = true }
+serde = { workspace = true }
+serde_cbor = { workspace = true }

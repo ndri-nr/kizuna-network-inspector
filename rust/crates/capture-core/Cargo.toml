@@ -1,0 +1,8 @@
+[package]
+name = "capture-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pnet = { workspace = true }
+serde = { workspace = true }

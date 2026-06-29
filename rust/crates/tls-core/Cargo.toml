@@ -1,0 +1,10 @@
+[package]
+name = "tls-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rustls = { workspace = true }
+rcgen = { workspace = true }
+zeroize = { workspace = true }
+serde = { workspace = true }
