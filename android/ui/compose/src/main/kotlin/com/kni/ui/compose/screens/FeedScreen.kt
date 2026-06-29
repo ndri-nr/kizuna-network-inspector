@@ -5,11 +5,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,6 +23,11 @@ import com.kni.ui.compose.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(
+    isCapturing: Boolean,
+    searchQuery: String,
+    transactions: List<LogItemData>,
+    onSearchQueryChanged: (String) -> Unit,
+    onToggleCapture: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToDiagnostics: () -> Unit,
     onNavigateToDetail: (String) -> Unit
@@ -31,7 +38,7 @@ fun FeedScreen(
                 title = { Text("Live Capture", style = MaterialTheme.typography.titleLarge) },
                 actions = {
                     IconButton(onClick = onNavigateToDiagnostics) {
-                        Icon(Icons.Default.Search, contentDescription = "Diagnostics")
+                        Icon(Icons.Default.Info, contentDescription = "Diagnostics")
                     }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
@@ -46,17 +53,20 @@ fun FeedScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { /* Start Capture */ },
-                containerColor = KniAccent,
+                onClick = onToggleCapture,
+                containerColor = if (isCapturing) KniError else KniAccent,
                 contentColor = Color.White
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = "Start")
+                Icon(
+                    if (isCapturing) Icons.Default.Close else Icons.Default.PlayArrow,
+                    contentDescription = if (isCapturing) "Stop" else "Start"
+                )
             }
         },
         containerColor = KniBgPrimary
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
-            // Search Box Placeholder
+            // Search Box
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -64,14 +74,19 @@ fun FeedScreen(
                 color = KniBgSurface,
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = KniTextSecondary)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Search traffic...", color = KniTextSecondary, style = MaterialTheme.typography.bodyMedium)
-                }
+                TextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Search traffic...", color = KniTextSecondary) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = KniTextSecondary) },
+                    colors = TextFieldDefaults.textFieldColors(
+                        containerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    ),
+                    singleLine = true
+                )
             }
 
             LazyColumn(
@@ -79,20 +94,30 @@ fun FeedScreen(
                 contentPadding = PaddingValues(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(10) { index ->
+                items(transactions.size) { index ->
+                    val item = transactions[index]
                     LogFeedItem(
-                        method = if (index % 2 == 0) "GET" else "POST",
-                        url = "https://api.kizuna.com/v1/packets/$index",
-                        status = 200,
-                        duration = "${10 + index}ms",
-                        size = "${1.2 + index}KB",
-                        onClick = { onNavigateToDetail(index.toString()) }
+                        method = item.method,
+                        url = item.url,
+                        status = item.status,
+                        duration = item.duration,
+                        size = item.size,
+                        onClick = { onNavigateToDetail(item.id) }
                     )
                 }
             }
         }
     }
 }
+
+data class LogItemData(
+    val id: String,
+    val method: String,
+    val url: String,
+    val status: Int,
+    val duration: String,
+    val size: String
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
