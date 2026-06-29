@@ -8,6 +8,13 @@ class NativeTlsEngine private constructor(private val nativePtr: Long) {
         fun create(rootCaPem: ByteArray): NativeTlsEngine {
             return NativeTlsEngine(tls_engine_new(rootCaPem))
         }
+
+        @JvmStatic
+        private external fun tls_engine_new(caPem: ByteArray): Long
+        @JvmStatic
+        private external fun tls_engine_free(enginePtr: Long)
+        @JvmStatic
+        private external fun tls_engine_intercept_handshake(enginePtr: Long, connId: Long, sni: String): Int
     }
 
     fun interceptHandshake(connectionId: Long, sni: String): Int {
@@ -17,8 +24,4 @@ class NativeTlsEngine private constructor(private val nativePtr: Long) {
     fun destroy() {
         tls_engine_free(nativePtr)
     }
-
-    private external fun tls_engine_new(caPem: ByteArray): Long
-    private external fun tls_engine_free(enginePtr: Long)
-    private external fun tls_engine_intercept_handshake(enginePtr: Long, connId: Long, sni: String): Int
 }

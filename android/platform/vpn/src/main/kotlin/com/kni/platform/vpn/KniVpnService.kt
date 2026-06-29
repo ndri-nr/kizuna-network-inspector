@@ -28,7 +28,6 @@ class KniVpnService : VpnService(), Runnable {
             .addAddress("10.0.0.2", 32)
             .addRoute("0.0.0.0", 0)
             .setSession("KizunaVPN")
-            .setConfigureIntent(null)
 
         vpnInterface = builder.establish()
         val fd = vpnInterface?.fd ?: return

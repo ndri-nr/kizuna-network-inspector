@@ -6,6 +6,13 @@ class NativeHttpEngine private constructor(private val nativePtr: Long) {
             System.loadLibrary("kni_rust_core")
         }
         fun create(): NativeHttpEngine = NativeHttpEngine(http_engine_new())
+
+        @JvmStatic
+        private external fun http_engine_new(): Long
+        @JvmStatic
+        private external fun http_engine_free(enginePtr: Long)
+        @JvmStatic
+        private external fun http_engine_parse_stream(enginePtr: Long, streamData: ByteArray): ByteArray
     }
 
     fun parseStream(data: ByteArray): ByteArray {
@@ -15,8 +22,4 @@ class NativeHttpEngine private constructor(private val nativePtr: Long) {
     fun destroy() {
         http_engine_free(nativePtr)
     }
-
-    private external fun http_engine_new(): Long
-    private external fun http_engine_free(enginePtr: Long)
-    private external fun http_engine_parse_stream(enginePtr: Long, streamData: ByteArray): ByteArray
 }
