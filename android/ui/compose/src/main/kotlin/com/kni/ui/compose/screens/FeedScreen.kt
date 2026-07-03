@@ -197,6 +197,19 @@ data class LogItemData(
     val size: String
 )
 
+/** A distinct color per HTTP method so they're easy to tell apart in the feed. */
+fun methodColor(method: String): Color = when (method.uppercase()) {
+    "GET" -> Color(0xFF4CAF50)      // green
+    "POST" -> Color(0xFF2196F3)     // blue
+    "PUT" -> Color(0xFFFF9800)      // orange
+    "PATCH" -> Color(0xFFFFC107)    // amber
+    "DELETE" -> Color(0xFFF44336)   // red
+    "HEAD" -> Color(0xFF9C27B0)     // purple
+    "OPTIONS" -> Color(0xFF00BCD4)  // cyan
+    "CONNECT" -> Color(0xFF795548)  // brown (HTTPS tunnel / not decrypted)
+    else -> Color(0xFF9E9E9E)       // grey
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogFeedItem(
@@ -220,14 +233,15 @@ fun LogFeedItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Method Badge
+            val mColor = methodColor(method)
             Surface(
-                color = if (method == "GET") KniSuccess.copy(alpha = 0.2f) else KniAccent.copy(alpha = 0.2f),
+                color = mColor.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(4.dp)
             ) {
                 Text(
                     text = method,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                    color = if (method == "GET") KniSuccess else KniAccent,
+                    color = mColor,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
                 )

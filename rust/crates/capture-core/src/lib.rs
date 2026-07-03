@@ -316,6 +316,120 @@ mod imp {
         out
     }
 
+    fn header_get<'a>(headers: &'a [(String, String)], name: &str) -> Option<&'a str> {
+        headers
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case(name))
+            .map(|(_, v)| v.as_str())
+    }
+
+    /// Decompress a body according to its `Content-Encoding` (gzip, deflate, br).
+    /// On any failure or unknown encoding the original bytes are returned as-is.
+    fn decompress(content_encoding: Option<&str>, body: &[u8]) -> Vec<u8> {
+        use std::io::Read;
+        let enc = match content_encoding {
+            Some(e) => e.trim().to_ascii_lowercase(),
+            None => return body.to_vec(),
+        };
+        // Content-Encoding may be a comma list; the outermost (last applied) wins,
+        // but in practice it is a single token — take the last non-identity token.
+        let enc = enc
+            .split(',')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty() && *s != "identity")
+            .last()
+            .unwrap_or("");
+        let mut out = Vec::new();
+        let ok = match enc {
+            "gzip" | "x-gzip" => flate2::read::GzDecoder::new(body).read_to_end(&mut out).is_ok(),
+            "deflate" => {
+                // Try zlib-wrapped first, then raw deflate.
+                if flate2::read::ZlibDecoder::new(body).read_to_end(&mut out).is_ok() {
+                    true
+                } else {
+                    out.clear();
+                    flate2::read::DeflateDecoder::new(body).read_to_end(&mut out).is_ok()
+                }
+            }
+            "br" => brotli::Decompressor::new(body, 4096).read_to_end(&mut out).is_ok(),
+            _ => return body.to_vec(),
+        };
+        if ok && !out.is_empty() {
+            out
+        } else {
+            body.to_vec()
+        }
+    }
+
+    /// True if a `Content-Type` denotes human-readable text worth showing verbatim.
+    fn is_texty(content_type: Option<&str>) -> bool {
+        let ct = match content_type {
+            Some(c) => c.split(';').next().unwrap_or("").trim().to_ascii_lowercase(),
+            None => return true, // unknown: assume text and show it
+        };
+        if ct.is_empty() {
+            return true;
+        }
+        ct.starts_with("text/")
+            || ct.contains("json")
+            || ct.contains("xml")
+            || ct.contains("javascript")
+            || ct.contains("x-www-form-urlencoded")
+            || ct.contains("graphql")
+            || ct == "application/csv"
+    }
+
+    /// Render a (already-decompressed) body for storage: readable text verbatim,
+    /// binary payloads replaced by a compact placeholder instead of mojibake.
+    fn render_body(content_type: Option<&str>, bytes: &[u8]) -> String {
+        if bytes.is_empty() {
+            return String::new();
+        }
+        if is_texty(content_type) {
+            String::from_utf8_lossy(bytes).to_string()
+        } else {
+            let label = content_type
+                .map(|c| c.split(';').next().unwrap_or("").trim())
+                .filter(|c| !c.is_empty())
+                .unwrap_or("data");
+            format!("\u{00AB}binary {}, {} bytes\u{00BB}", label, bytes.len())
+        }
+    }
+
+    #[cfg(test)]
+    mod body_tests {
+        use super::{decompress, is_texty, render_body};
+        use std::io::Write;
+
+        #[test]
+        fn gzip_roundtrip() {
+            let mut enc = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+            enc.write_all(b"{\"hello\":\"world\"}").unwrap();
+            let gz = enc.finish().unwrap();
+            let out = decompress(Some("gzip"), &gz);
+            assert_eq!(out, b"{\"hello\":\"world\"}");
+        }
+
+        #[test]
+        fn unknown_encoding_passes_through() {
+            assert_eq!(decompress(None, b"raw"), b"raw");
+            assert_eq!(decompress(Some("identity"), b"raw"), b"raw");
+            // Corrupt gzip falls back to the original bytes rather than losing data.
+            assert_eq!(decompress(Some("gzip"), b"not gzip"), b"not gzip");
+        }
+
+        #[test]
+        fn binary_bodies_become_placeholder() {
+            assert!(is_texty(Some("application/json")));
+            assert!(is_texty(Some("text/html; charset=utf-8")));
+            assert!(!is_texty(Some("image/jpeg")));
+            let rendered = render_body(Some("image/jpeg"), &[0xFF, 0xD8, 0xFF, 0x00]);
+            assert!(rendered.contains("binary image/jpeg"));
+            assert!(rendered.contains("4 bytes"));
+            assert_eq!(render_body(Some("application/json"), b"{\"a\":1}"), "{\"a\":1}");
+        }
+    }
+
     fn now_millis() -> i64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -363,16 +477,22 @@ mod imp {
             ),
         };
         let (status, resp_headers, resp_body) = match &resp {
-            Some(r) => (
-                Some(r.status as i32),
-                headers_json(&r.headers),
-                String::from_utf8_lossy(&r.body).to_string(),
-            ),
+            Some(r) => {
+                let decoded = decompress(header_get(&r.headers, "content-encoding"), &r.body);
+                (
+                    Some(r.status as i32),
+                    headers_json(&r.headers),
+                    render_body(header_get(&r.headers, "content-type"), &decoded),
+                )
+            }
             None => (None, "{}".to_string(), String::new()),
         };
         let req_body = req
             .as_ref()
-            .map(|r| String::from_utf8_lossy(&r.body).to_string())
+            .map(|r| {
+                let decoded = decompress(header_get(&r.headers, "content-encoding"), &r.body);
+                render_body(header_get(&r.headers, "content-type"), &decoded)
+            })
             .unwrap_or_default();
         HttpExchange {
             id,

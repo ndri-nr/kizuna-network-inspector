@@ -12,6 +12,8 @@ parser-core = { path = "../parser-core" }
 tls-core = { path = "../tls-core" }
 storage-core = { path = "../storage-core" }
 rustls = { workspace = true }
+flate2 = { workspace = true }
+brotli = { workspace = true }
 smoltcp = { version = "0.13.1", default-features = false, features = ["std", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp"] }
 socket2 = "0.6.4"
 
