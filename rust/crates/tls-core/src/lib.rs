@@ -1,7 +1,8 @@
 use rcgen::{
-    BasicConstraints, Certificate, CertificateParams, DistinguishedName, DnType, IsCa, KeyPair,
-    KeyUsagePurpose, SanType,
+    BasicConstraints, Certificate, CertificateParams, DistinguishedName, DnType,
+    ExtendedKeyUsagePurpose, IsCa, KeyPair, KeyUsagePurpose, SanType,
 };
+use std::time::SystemTime;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -146,9 +147,19 @@ impl TlsEngine {
         let mut dn = DistinguishedName::new();
         dn.push(DnType::CommonName, host);
         params.distinguished_name = dn;
-        // Fixed, wide validity avoids depending on a wall clock in the core.
-        params.not_before = rcgen::date_time_ymd(2020, 1, 1);
-        params.not_after = rcgen::date_time_ymd(2035, 1, 1);
+        // Strict TLS stacks (OkHttp/BoringSSL) reject a leaf that lacks the
+        // serverAuth EKU or has an over-long validity, while lenient WebViews accept
+        // it — set both so API/POST clients complete the handshake.
+        params.key_usages = vec![
+            KeyUsagePurpose::DigitalSignature,
+            KeyUsagePurpose::KeyEncipherment,
+        ];
+        params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
+        // Validity window centered on now, under the ~398-day cap enforced by
+        // modern clients. Uses the real wall clock (available in the app runtime).
+        let now = time::OffsetDateTime::from(SystemTime::now());
+        params.not_before = now - time::Duration::days(1);
+        params.not_after = now + time::Duration::days(397);
 
         let leaf = Certificate::from_params(params).map_err(|e| e.to_string())?;
         let cert_der = leaf

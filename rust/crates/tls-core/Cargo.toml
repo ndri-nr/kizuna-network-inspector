@@ -7,5 +7,6 @@ edition = "2021"
 rustls = { workspace = true }
 rcgen = { workspace = true }
 webpki-roots = { workspace = true }
+time = { workspace = true }
 zeroize = { workspace = true }
 serde = { workspace = true }
