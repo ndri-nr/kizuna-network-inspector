@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Splash Screen Starting Theme -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <!-- White background to match the launcher icon style -->
+        <item name="windowSplashScreenBackground">#FFFFFF</item>
+        <!-- The app logo icon -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <!-- Theme to use after splash screen is dismissed -->
+        <item name="postSplashScreenTheme">@android:style/Theme.Material.Light.NoActionBar</item>
+    </style>
+</resources>

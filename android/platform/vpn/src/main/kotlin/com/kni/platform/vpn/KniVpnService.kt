@@ -72,7 +72,7 @@ class KniVpnService : VpnService() {
             .addAddress("10.0.0.2", 32)
             .addRoute("0.0.0.0", 0)
             .addDnsServer("8.8.8.8")
-            .setSession("Kizuna Network Inspector")
+            .setSession("Kizuna: Network Inspector")
 
         // Scope the tunnel to the chosen apps (empty = all apps). Restricting to
         // the app under test also keeps MITM from breaking other apps' pinned TLS.
@@ -175,7 +175,7 @@ class KniVpnService : VpnService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Kizuna Network Inspector")
+            .setContentTitle("Kizuna: Network Inspector")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_view)
             .setOngoing(true)
