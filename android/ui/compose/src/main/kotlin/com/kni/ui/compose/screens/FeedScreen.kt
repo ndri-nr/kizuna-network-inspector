@@ -1,8 +1,12 @@
 package com.kni.ui.compose.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -46,9 +50,9 @@ fun FeedScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = KniBgPrimary,
-                    titleContentColor = KniTextPrimary,
-                    actionIconContentColor = KniTextPrimary
+                    containerColor = KniHeader,
+                    titleContentColor = KniOnHeader,
+                    actionIconContentColor = KniOnHeader
                 )
             )
         },
@@ -66,8 +70,9 @@ fun FeedScreen(
         },
         containerColor = KniBgPrimary
     ) { padding ->
-        var methodFilter by remember { mutableStateOf<String?>(null) }
-        var hostFilter by remember { mutableStateOf<String?>(null) }
+        var selectedMethods by remember { mutableStateOf(setOf<String>()) }
+        var selectedHosts by remember { mutableStateOf(setOf<String>()) }
+        var showHostDialog by remember { mutableStateOf(false) }
 
         val methods = remember(transactions) {
             transactions.map { it.method }.filter { it.isNotBlank() }.distinct().sorted()
@@ -76,8 +81,8 @@ fun FeedScreen(
             transactions.map { it.host }.filter { it.isNotBlank() }.distinct().sorted()
         }
         val visible = transactions.filter {
-            (methodFilter == null || it.method == methodFilter) &&
-                (hostFilter == null || it.host == hostFilter)
+            (selectedMethods.isEmpty() || it.method in selectedMethods) &&
+                (selectedHosts.isEmpty() || it.host in selectedHosts)
         }
 
         Column(modifier = Modifier.padding(padding)) {
@@ -87,7 +92,7 @@ fun FeedScreen(
                     .fillMaxWidth()
                     .padding(8.dp),
                 color = KniBgSurface,
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(24.dp)
             ) {
                 TextField(
                     value = searchQuery,
@@ -104,27 +109,39 @@ fun FeedScreen(
                 )
             }
 
-            // Host + method filters
+            // Method multiselect chips + host filter (searchable, multiselect).
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
                     .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                FilterDropdown(
-                    label = "Method",
-                    selected = methodFilter,
-                    options = methods,
-                    onSelect = { methodFilter = it },
-                    modifier = Modifier.weight(1f)
+                FilterChip(
+                    selected = selectedHosts.isNotEmpty(),
+                    onClick = { showHostDialog = true },
+                    label = {
+                        Text(if (selectedHosts.isEmpty()) "Host" else "Host (${selectedHosts.size})")
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
+                    }
                 )
-                FilterDropdown(
-                    label = "Host",
-                    selected = hostFilter,
-                    options = hosts,
-                    onSelect = { hostFilter = it },
-                    modifier = Modifier.weight(1f)
-                )
+                methods.forEach { m ->
+                    FilterChip(
+                        selected = m in selectedMethods,
+                        onClick = {
+                            selectedMethods =
+                                if (m in selectedMethods) selectedMethods - m else selectedMethods + m
+                        },
+                        label = { Text(m) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = methodColor(m).copy(alpha = 0.2f),
+                            selectedLabelColor = methodColor(m)
+                        )
+                    )
+                }
             }
 
             LazyColumn(
@@ -146,45 +163,76 @@ fun FeedScreen(
                 }
             }
         }
+
+        if (showHostDialog) {
+            MultiSelectSearchDialog(
+                title = "Filter by Host",
+                options = hosts,
+                selected = selectedHosts,
+                onDismiss = { showHostDialog = false },
+                onConfirm = { selectedHosts = it; showHostDialog = false }
+            )
+        }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Searchable, multi-select picker over string [options]. Empty result = no filter. */
 @Composable
-private fun FilterDropdown(
-    label: String,
-    selected: String?,
+fun MultiSelectSearchDialog(
+    title: String,
     options: List<String>,
-    onSelect: (String?) -> Unit,
-    modifier: Modifier = Modifier
+    selected: Set<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (Set<String>) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    Box(modifier = modifier) {
-        OutlinedButton(
-            onClick = { expanded = true },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = selected ?: "All ${label.lowercase()}s",
-                color = if (selected != null) KniAccent else KniTextSecondary,
-                maxLines = 1,
-                modifier = Modifier.weight(1f)
-            )
-            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = KniTextSecondary)
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text("All ${label.lowercase()}s") },
-                onClick = { onSelect(null); expanded = false }
-            )
-            options.forEach { opt ->
-                DropdownMenuItem(
-                    text = { Text(opt) },
-                    onClick = { onSelect(opt); expanded = false }
+    var query by remember { mutableStateOf("") }
+    val working = remember { mutableStateListOf<String>().apply { addAll(selected) } }
+    val shown = options.filter { it.contains(query, ignoreCase = true) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = { Text("Search…") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(Modifier.height(8.dp))
+                if (working.isNotEmpty()) {
+                    TextButton(onClick = { working.clear() }) { Text("Clear (${working.size})") }
+                }
+                LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                    items(shown) { opt ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (working.contains(opt)) working.remove(opt) else working.add(opt)
+                                }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = working.contains(opt),
+                                onCheckedChange = { checked ->
+                                    if (checked) working.add(opt) else working.remove(opt)
+                                }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(opt, maxLines = 1)
+                        }
+                    }
+                }
             }
-        }
-    }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(working.toSet()) }) { Text("Apply") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 data class LogItemData(

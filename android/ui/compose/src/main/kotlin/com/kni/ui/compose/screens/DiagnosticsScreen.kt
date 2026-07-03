@@ -35,9 +35,9 @@ fun DiagnosticsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = KniBgPrimary,
-                    titleContentColor = KniTextPrimary,
-                    navigationIconContentColor = KniTextPrimary
+                    containerColor = KniHeader,
+                    titleContentColor = KniOnHeader,
+                    navigationIconContentColor = KniOnHeader
                 )
             )
         },

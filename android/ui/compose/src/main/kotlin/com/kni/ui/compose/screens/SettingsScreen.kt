@@ -1,10 +1,12 @@
 package com.kni.ui.compose.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,9 +31,9 @@ fun SettingsScreen(onBack: () -> Unit, hooks: SettingsHooks) {
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = KniBgPrimary,
-                    titleContentColor = KniTextPrimary,
-                    navigationIconContentColor = KniTextPrimary
+                    containerColor = KniHeader,
+                    titleContentColor = KniOnHeader,
+                    navigationIconContentColor = KniOnHeader
                 )
             )
         },
@@ -144,7 +146,11 @@ private fun AppPickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (Set<String>) -> Unit
 ) {
+    var query by remember { mutableStateOf("") }
     val working = remember { mutableStateListOf<String>().apply { addAll(selected) } }
+    val shown = apps.filter {
+        it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true)
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Apps to Capture") },
@@ -156,10 +162,28 @@ private fun AppPickerDialog(
                     style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(Modifier.height(8.dp))
-                LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
-                    items(apps) { app ->
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = { Text("Search apps…") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(4.dp))
+                if (working.isNotEmpty()) {
+                    TextButton(onClick = { working.clear() }) { Text("Clear (${working.size})") }
+                }
+                LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                    items(shown) { app ->
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (working.contains(app.packageName)) working.remove(app.packageName)
+                                    else working.add(app.packageName)
+                                }
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Checkbox(

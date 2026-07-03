@@ -50,7 +50,7 @@ fun DetailScreen(
                             val statusText = if (detail.status == 0) "—" else detail.status.toString()
                             Text(
                                 "Status: $statusText",
-                                color = KniSuccess,
+                                color = KniOnHeader.copy(alpha = 0.85f),
                                 style = MaterialTheme.typography.labelSmall
                             )
                         }
@@ -64,15 +64,15 @@ fun DetailScreen(
                 actions = {
                     if (detail != null) {
                         TextButton(onClick = { copy("Full detail", detail.toMarkdown()) }) {
-                            Text("Copy all", color = KniAccent)
+                            Text("Copy all", color = KniOnHeader)
                         }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = KniBgPrimary,
-                    titleContentColor = KniTextPrimary,
-                    navigationIconContentColor = KniTextPrimary,
-                    actionIconContentColor = KniTextPrimary
+                    containerColor = KniHeader,
+                    titleContentColor = KniOnHeader,
+                    navigationIconContentColor = KniOnHeader,
+                    actionIconContentColor = KniOnHeader
                 )
             )
         },

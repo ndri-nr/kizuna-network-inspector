@@ -1,43 +1,32 @@
 package com.kni.ui.compose.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val DarkColorScheme = darkColorScheme(
+// A single light, green-forward scheme regardless of the system dark-mode setting,
+// so the app has a consistent WhatsApp/Gojek look.
+private val KniColorScheme = lightColorScheme(
     primary = KniAccent,
-    background = KniBgPrimary,
-    surface = KniBgSurface,
-    onPrimary = KniTextPrimary,
-    onBackground = KniTextPrimary,
-    onSurface = KniTextPrimary,
-    secondary = KniTextSecondary,
-    error = KniError
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = KniAccent,
-    background = KniTextPrimary,
-    surface = Color.White,
     onPrimary = Color.White,
-    onBackground = KniBgPrimary,
-    onSurface = KniBgPrimary,
-    secondary = KniTextSecondary,
-    error = KniError
+    secondary = KniHeader,
+    onSecondary = Color.White,
+    background = KniBgPrimary,
+    onBackground = KniTextPrimary,
+    surface = KniBgSurface,
+    onSurface = KniTextPrimary,
+    surfaceVariant = KniBgPrimary,
+    error = KniError,
+    onError = Color.White,
 )
 
 @Composable
 fun KniTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = KniColorScheme,
         content = content
     )
 }
