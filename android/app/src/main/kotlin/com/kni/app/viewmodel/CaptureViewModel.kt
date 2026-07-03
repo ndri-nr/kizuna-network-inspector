@@ -24,6 +24,12 @@ class CaptureViewModel(private val repository: TransactionRepository) : ViewMode
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
 
+    private val _selectedMethods = MutableStateFlow<Set<String>>(emptySet())
+    val selectedMethods: StateFlow<Set<String>> = _selectedMethods
+
+    private val _selectedHosts = MutableStateFlow<Set<String>>(emptySet())
+    val selectedHosts: StateFlow<Set<String>> = _selectedHosts
+
     val filteredTransactions: StateFlow<List<NetworkTransaction>> = combine(
         repository.transactions,
         _searchQuery
@@ -51,6 +57,20 @@ class CaptureViewModel(private val repository: TransactionRepository) : ViewMode
 
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
+    }
+
+    fun onSelectedMethodsChanged(methods: Set<String>) {
+        _selectedMethods.value = methods
+    }
+
+    fun onSelectedHostsChanged(hosts: Set<String>) {
+        _selectedHosts.value = hosts
+    }
+
+    fun resetFilters() {
+        _searchQuery.value = ""
+        _selectedMethods.value = emptySet()
+        _selectedHosts.value = emptySet()
     }
 
     fun transactionById(id: String): NetworkTransaction? = repository.getById(id)

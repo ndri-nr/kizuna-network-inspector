@@ -31,7 +31,12 @@ fun FeedScreen(
     isCapturing: Boolean,
     searchQuery: String,
     transactions: List<LogItemData>,
+    selectedMethods: Set<String>,
+    selectedHosts: Set<String>,
     onSearchQueryChanged: (String) -> Unit,
+    onSelectedMethodsChanged: (Set<String>) -> Unit,
+    onSelectedHostsChanged: (Set<String>) -> Unit,
+    onResetFilters: () -> Unit,
     onToggleCapture: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToDiagnostics: () -> Unit,
@@ -70,8 +75,6 @@ fun FeedScreen(
         },
         containerColor = KniBgPrimary
     ) { padding ->
-        var selectedMethods by remember { mutableStateOf(setOf<String>()) }
-        var selectedHosts by remember { mutableStateOf(setOf<String>()) }
         var showHostDialog by remember { mutableStateOf(false) }
 
         val methods = remember(transactions) {
@@ -118,6 +121,18 @@ fun FeedScreen(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (searchQuery.isNotEmpty() || selectedMethods.isNotEmpty() || selectedHosts.isNotEmpty()) {
+                    TextButton(
+                        onClick = onResetFilters,
+                        colors = ButtonDefaults.textButtonColors(contentColor = KniError),
+                        contentPadding = PaddingValues(horizontal = 8.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Reset Filters", modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Reset", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
                 FilterChip(
                     selected = selectedHosts.isNotEmpty(),
                     onClick = { showHostDialog = true },
@@ -132,8 +147,9 @@ fun FeedScreen(
                     FilterChip(
                         selected = m in selectedMethods,
                         onClick = {
-                            selectedMethods =
+                            onSelectedMethodsChanged(
                                 if (m in selectedMethods) selectedMethods - m else selectedMethods + m
+                            )
                         },
                         label = { Text(m) },
                         colors = FilterChipDefaults.filterChipColors(
@@ -170,7 +186,10 @@ fun FeedScreen(
                 options = hosts,
                 selected = selectedHosts,
                 onDismiss = { showHostDialog = false },
-                onConfirm = { selectedHosts = it; showHostDialog = false }
+                onConfirm = {
+                    onSelectedHostsChanged(it)
+                    showHostDialog = false
+                }
             )
         }
     }

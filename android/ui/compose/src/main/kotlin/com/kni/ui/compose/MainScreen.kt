@@ -11,7 +11,12 @@ fun MainScreen(
     isCapturing: Boolean,
     searchQuery: String,
     transactions: List<LogItemData>,
+    selectedMethods: Set<String>,
+    selectedHosts: Set<String>,
     onSearchQueryChanged: (String) -> Unit,
+    onSelectedMethodsChanged: (Set<String>) -> Unit,
+    onSelectedHostsChanged: (Set<String>) -> Unit,
+    onResetFilters: () -> Unit,
     onToggleCapture: () -> Unit,
     hooks: ScreenHooks
 ) {
@@ -20,7 +25,12 @@ fun MainScreen(
             isCapturing = isCapturing,
             searchQuery = searchQuery,
             transactions = transactions,
+            selectedMethods = selectedMethods,
+            selectedHosts = selectedHosts,
             onSearchQueryChanged = onSearchQueryChanged,
+            onSelectedMethodsChanged = onSelectedMethodsChanged,
+            onSelectedHostsChanged = onSelectedHostsChanged,
+            onResetFilters = onResetFilters,
             onToggleCapture = onToggleCapture,
             hooks = hooks
         )

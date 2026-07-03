@@ -138,6 +138,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val state by viewModel.captureState.collectAsState()
             val searchQuery by viewModel.searchQuery.collectAsState()
+            val selectedMethods by viewModel.selectedMethods.collectAsState()
+            val selectedHosts by viewModel.selectedHosts.collectAsState()
             val transactions by viewModel.filteredTransactions.collectAsState()
             val storageLimit by settingsRepository.storageLimitMb
                 .collectAsState(initial = SettingsRepository.DEFAULT_STORAGE_MB)
@@ -185,7 +187,12 @@ class MainActivity : ComponentActivity() {
                 isCapturing = state != CaptureState.STOPPED,
                 searchQuery = searchQuery,
                 transactions = transactions.map { it.toLogItem() },
+                selectedMethods = selectedMethods,
+                selectedHosts = selectedHosts,
                 onSearchQueryChanged = { viewModel.onSearchQueryChanged(it) },
+                onSelectedMethodsChanged = { viewModel.onSelectedMethodsChanged(it) },
+                onSelectedHostsChanged = { viewModel.onSelectedHostsChanged(it) },
+                onResetFilters = { viewModel.resetFilters() },
                 onToggleCapture = ::toggleCapture,
                 hooks = hooks
             )
