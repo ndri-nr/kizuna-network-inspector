@@ -79,6 +79,9 @@ class TransactionRepository(context: Context) {
         requestHeaders = o.optString("request_headers", "{}"),
         responseHeaders = o.optString("response_headers", "{}"),
         requestBody = o.optString("request_body", ""),
-        responseBody = o.optString("response_body", "")
+        responseBody = o.optString("response_body", ""),
+        tlsVersion = o.optString("tls_version", ""),
+        tlsCipher = o.optString("tls_cipher", ""),
+        tlsCert = o.optString("tls_cert", "")
     )
 }

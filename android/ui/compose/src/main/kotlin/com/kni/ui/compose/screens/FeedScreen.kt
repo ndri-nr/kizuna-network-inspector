@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
@@ -65,6 +66,20 @@ fun FeedScreen(
         },
         containerColor = KniBgPrimary
     ) { padding ->
+        var methodFilter by remember { mutableStateOf<String?>(null) }
+        var hostFilter by remember { mutableStateOf<String?>(null) }
+
+        val methods = remember(transactions) {
+            transactions.map { it.method }.filter { it.isNotBlank() }.distinct().sorted()
+        }
+        val hosts = remember(transactions) {
+            transactions.map { it.host }.filter { it.isNotBlank() }.distinct().sorted()
+        }
+        val visible = transactions.filter {
+            (methodFilter == null || it.method == methodFilter) &&
+                (hostFilter == null || it.host == hostFilter)
+        }
+
         Column(modifier = Modifier.padding(padding)) {
             // Search Box
             Surface(
@@ -89,16 +104,40 @@ fun FeedScreen(
                 )
             }
 
+            // Host + method filters
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterDropdown(
+                    label = "Method",
+                    selected = methodFilter,
+                    options = methods,
+                    onSelect = { methodFilter = it },
+                    modifier = Modifier.weight(1f)
+                )
+                FilterDropdown(
+                    label = "Host",
+                    selected = hostFilter,
+                    options = hosts,
+                    onSelect = { hostFilter = it },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(transactions.size) { index ->
-                    val item = transactions[index]
+                items(visible.size) { index ->
+                    val item = visible[index]
                     LogFeedItem(
                         method = item.method,
                         url = item.url,
+                        host = item.host,
                         status = item.status,
                         duration = item.duration,
                         size = item.size,
@@ -110,10 +149,49 @@ fun FeedScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterDropdown(
+    label: String,
+    selected: String?,
+    options: List<String>,
+    onSelect: (String?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = selected ?: "All ${label.lowercase()}s",
+                color = if (selected != null) KniAccent else KniTextSecondary,
+                maxLines = 1,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = KniTextSecondary)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("All ${label.lowercase()}s") },
+                onClick = { onSelect(null); expanded = false }
+            )
+            options.forEach { opt ->
+                DropdownMenuItem(
+                    text = { Text(opt) },
+                    onClick = { onSelect(opt); expanded = false }
+                )
+            }
+        }
+    }
+}
+
 data class LogItemData(
     val id: String,
     val method: String,
     val url: String,
+    val host: String,
     val status: Int,
     val duration: String,
     val size: String
@@ -124,6 +202,7 @@ data class LogItemData(
 fun LogFeedItem(
     method: String,
     url: String,
+    host: String,
     status: Int,
     duration: String,
     size: String,
@@ -163,9 +242,17 @@ fun LogFeedItem(
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
                     maxLines = 1
                 )
+                if (host.isNotBlank()) {
+                    Text(
+                        text = host,
+                        color = KniTextSecondary,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1
+                    )
+                }
                 Row {
                     Text(
-                        text = "$status OK",
+                        text = if (status == 0) "—" else status.toString(),
                         color = KniSuccess,
                         style = MaterialTheme.typography.labelSmall
                     )

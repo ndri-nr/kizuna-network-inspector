@@ -6,5 +6,6 @@ edition = "2021"
 [dependencies]
 rustls = { workspace = true }
 rcgen = { workspace = true }
+webpki-roots = { workspace = true }
 zeroize = { workspace = true }
 serde = { workspace = true }

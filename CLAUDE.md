@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Kizuna Network Inspector (KNI) — an Android network traffic inspection tool (MITM proxy via `VpnService`) whose analysis logic lives in a shared Rust core. Explicit design intent: Android is "the first client"; the Rust core is meant to be reused by future iOS/desktop/CLI clients, so heavy logic belongs in Rust, not Kotlin.
 
-The `docs/` directory (30 numbered specs, `00`–`29`) is normative — architecture, engine contracts, and requirements are defined there and code is expected to conform. Consult the relevant spec before changing an engine's behavior. Current state is early (v0.1 "Capture" phase); several engines are skeletons/stubs (e.g. `storage_engine_write_exchange` ignores its CBOR arg and writes mock data), so treat much of the code as scaffolding against the spec.
+The `docs/` directory (30 numbered specs, `00`–`29`) is normative — architecture, engine contracts, and requirements are defined there and code is expected to conform. Consult the relevant spec before changing an engine's behavior. The project has moved past pure scaffolding: Phase 1 capture (plaintext HTTP, HTTPS SNI metadata, SQLite storage, search, CA generate/install) and Phase 2 HTTPS MITM decryption (rustls termination in `capture-core`, per-host leaf minting in `tls-core`, opt-in via a Settings "Decrypt HTTPS" toggle) are implemented. Note MITM only decrypts apps that trust the user-installed CA (`networkSecurityConfig` / rooted system store); cert-pinning apps cannot be intercepted (spec: out of scope). Some pieces remain partial — verify against the spec before relying on any single engine.
 
 ## Two build systems, one artifact
 

@@ -24,6 +24,16 @@ pub struct HttpExchange {
     pub response_headers: String,
     pub request_body: String,
     pub response_body: String,
+    /// Negotiated TLS protocol version (e.g. "TLSv1.3"), empty for plaintext http.
+    #[serde(default)]
+    pub tls_version: String,
+    /// Negotiated cipher suite name, empty for plaintext http.
+    #[serde(default)]
+    pub tls_cipher: String,
+    /// Human summary of the upstream server certificate (subject / issuer / notAfter),
+    /// or a diagnostic note (e.g. "handshake failed") when interception did not complete.
+    #[serde(default)]
+    pub tls_cert: String,
 }
 
 pub struct StorageEngine {
@@ -79,6 +89,9 @@ impl StorageEngine {
                 response_headers TEXT,
                 request_body TEXT,
                 response_body TEXT,
+                tls_version TEXT NOT NULL DEFAULT '',
+                tls_cipher TEXT NOT NULL DEFAULT '',
+                tls_cert TEXT NOT NULL DEFAULT '',
                 FOREIGN KEY(session_id) REFERENCES capture_sessions(id) ON DELETE CASCADE
             );",
             [],
@@ -92,6 +105,34 @@ impl StorageEngine {
             "CREATE INDEX IF NOT EXISTS idx_exchanges_host ON http_exchanges(host);",
             [],
         )?;
+
+        self.migrate()?;
+
+        Ok(())
+    }
+
+    /// Forward-only schema migrations for databases created by an earlier build.
+    /// Fresh installs already get every column from `CREATE TABLE`, so each ALTER
+    /// here is expected to hit a "duplicate column" error on them — which we ignore.
+    fn migrate(&self) -> Result<()> {
+        let version: i64 = self
+            .conn
+            .query_row("PRAGMA user_version;", [], |r| r.get(0))
+            .unwrap_or(0);
+
+        if version < 2 {
+            // Phase 2: TLS metadata columns.
+            for col in ["tls_version", "tls_cipher", "tls_cert"] {
+                let _ = self.conn.execute(
+                    &format!(
+                        "ALTER TABLE http_exchanges ADD COLUMN {} TEXT NOT NULL DEFAULT '';",
+                        col
+                    ),
+                    [],
+                );
+            }
+            self.conn.execute_batch("PRAGMA user_version = 2;")?;
+        }
 
         Ok(())
     }
@@ -107,8 +148,8 @@ impl StorageEngine {
             "INSERT OR REPLACE INTO http_exchanges (
                 id, session_id, scheme, host, method, url, status_code, timestamp,
                 duration_ms, req_size, resp_size, request_headers, response_headers,
-                request_body, response_body
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+                request_body, response_body, tls_version, tls_cipher, tls_cert
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
             params![
                 ex.id,
                 ex.session_id,
@@ -125,6 +166,9 @@ impl StorageEngine {
                 ex.response_headers,
                 ex.request_body,
                 ex.response_body,
+                ex.tls_version,
+                ex.tls_cipher,
+                ex.tls_cert,
             ],
         )?;
 
@@ -148,12 +192,15 @@ impl StorageEngine {
             response_headers: row.get::<_, Option<String>>(12)?.unwrap_or_default(),
             request_body: row.get::<_, Option<String>>(13)?.unwrap_or_default(),
             response_body: row.get::<_, Option<String>>(14)?.unwrap_or_default(),
+            tls_version: row.get::<_, Option<String>>(15)?.unwrap_or_default(),
+            tls_cipher: row.get::<_, Option<String>>(16)?.unwrap_or_default(),
+            tls_cert: row.get::<_, Option<String>>(17)?.unwrap_or_default(),
         })
     }
 
     const SELECT_COLS: &'static str = "id, session_id, scheme, host, method, url, status_code, \
         timestamp, duration_ms, req_size, resp_size, request_headers, response_headers, \
-        request_body, response_body";
+        request_body, response_body, tls_version, tls_cipher, tls_cert";
 
     /// All exchanges with `timestamp > since`, newest first. Used by the UI to
     /// drain freshly captured traffic on a poll tick.
@@ -207,6 +254,9 @@ mod tests {
             response_headers: "{}".to_string(),
             request_body: String::new(),
             response_body: "ok".to_string(),
+            tls_version: "TLSv1.3".to_string(),
+            tls_cipher: "TLS13_AES_128_GCM_SHA256".to_string(),
+            tls_cert: "CN=example.com".to_string(),
         }
     }
 
@@ -231,6 +281,9 @@ mod tests {
         let one = engine.read_by_id("a").unwrap().unwrap();
         assert_eq!(one.url, "http://example.com/");
         assert_eq!(one.resp_size, 200);
+        assert_eq!(one.tls_version, "TLSv1.3");
+        assert_eq!(one.tls_cipher, "TLS13_AES_128_GCM_SHA256");
+        assert_eq!(one.tls_cert, "CN=example.com");
         assert_eq!(engine.count().unwrap(), 2);
 
         let _ = std::fs::remove_dir_all(&dir);

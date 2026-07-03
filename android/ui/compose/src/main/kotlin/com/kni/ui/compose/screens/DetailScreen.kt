@@ -1,5 +1,6 @@
 package com.kni.ui.compose.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -9,6 +10,9 @@ import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kni.ui.compose.theme.*
@@ -23,7 +27,14 @@ fun DetailScreen(
 ) {
     val detail = remember(exchangeId) { loadDetail(exchangeId) }
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Headers", "Body", "Timing", "TLS")
+    val tabs = listOf("Request", "Response", "Timing", "TLS")
+
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    fun copy(label: String, text: String) {
+        clipboard.setText(AnnotatedString(text))
+        Toast.makeText(context, "$label copied", Toast.LENGTH_SHORT).show()
+    }
 
     Scaffold(
         topBar = {
@@ -50,10 +61,18 @@ fun DetailScreen(
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
+                actions = {
+                    if (detail != null) {
+                        TextButton(onClick = { copy("Full detail", detail.toMarkdown()) }) {
+                            Text("Copy all", color = KniAccent)
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = KniBgPrimary,
                     titleContentColor = KniTextPrimary,
-                    navigationIconContentColor = KniTextPrimary
+                    navigationIconContentColor = KniTextPrimary,
+                    actionIconContentColor = KniTextPrimary
                 )
             )
         },
@@ -92,10 +111,26 @@ fun DetailScreen(
                 }
             }
 
-            Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            // Per-tab copy affordance.
+            val (tabLabel, tabMarkdown) = when (selectedTab) {
+                0 -> "Request" to detail.requestMarkdown()
+                1 -> "Response" to detail.responseMarkdown()
+                2 -> "Timing" to detail.timingMarkdown()
+                else -> "TLS" to detail.tlsMarkdown()
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = { copy("$tabLabel tab", tabMarkdown) }) {
+                    Text("Copy tab", color = KniAccent, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+
+            Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
                 when (selectedTab) {
-                    0 -> HeadersTab(detail)
-                    1 -> BodyTab(detail)
+                    0 -> RequestTab(detail)
+                    1 -> ResponseTab(detail)
                     2 -> TimingTab(detail)
                     3 -> TlsTab(detail)
                 }
@@ -112,13 +147,24 @@ private fun parseHeaders(json: String): List<Pair<String, String>> = try {
 }
 
 @Composable
-private fun HeadersTab(detail: DetailData) {
+private fun RequestTab(detail: DetailData) {
     Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         HeaderSection("Request Headers", parseHeaders(detail.requestHeaders))
+        BodySection("Request Body", detail.requestBody, detail.scheme)
+    }
+}
+
+@Composable
+private fun ResponseTab(detail: DetailData) {
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         HeaderSection("Response Headers", parseHeaders(detail.responseHeaders))
+        BodySection("Response Body", detail.responseBody, detail.scheme)
     }
 }
 
@@ -150,26 +196,33 @@ fun HeaderSection(title: String, items: List<Pair<String, String>>) {
 }
 
 @Composable
-private fun BodyTab(detail: DetailData) {
-    val body = detail.responseBody.ifBlank {
-        detail.requestBody.ifBlank {
-            if (detail.scheme == "https")
-                "Body is encrypted (HTTPS). Decryption arrives in Phase 2 (MITM)."
-            else
-                "(no body captured)"
-        }
+private fun BodySection(title: String, rawBody: String, scheme: String) {
+    val body = rawBody.ifBlank {
+        if (scheme == "https")
+            "(no body — HTTPS not decrypted for this exchange; enable Decrypt HTTPS in Settings and trust the CA)"
+        else
+            "(no body captured)"
     }
-    Surface(
-        color = KniBgSurface,
-        shape = MaterialTheme.shapes.medium,
-        modifier = Modifier.fillMaxSize()
-    ) {
+    Column {
         Text(
-            text = body,
-            modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState()),
-            color = KniTextPrimary,
-            style = MaterialTheme.typography.bodySmall
+            title,
+            color = KniAccent,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleSmall
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        Surface(
+            color = KniBgSurface,
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = body,
+                modifier = Modifier.padding(16.dp),
+                color = KniTextPrimary,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
     }
 }
 
@@ -184,15 +237,24 @@ private fun TimingTab(detail: DetailData) {
 
 @Composable
 private fun TlsTab(detail: DetailData) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         KeyVal("Scheme", detail.scheme.uppercase())
         KeyVal("Host (SNI)", detail.host)
         if (detail.scheme == "https") {
-            Text(
-                "TLS is intercepted at the tunnel; payload is encrypted. Decryption (per-host leaf certs) arrives in Phase 2.",
-                color = KniTextSecondary,
-                style = MaterialTheme.typography.bodySmall
-            )
+            KeyVal("Version", detail.tlsVersion.ifBlank { "—" })
+            KeyVal("Cipher", detail.tlsCipher.ifBlank { "—" })
+            KeyVal("Certificate", detail.tlsCert.ifBlank { "—" })
+            if (detail.tlsVersion.isBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Not decrypted. Enable Decrypt HTTPS in Settings and install/trust the Kizuna Root CA; apps that pin certificates cannot be intercepted.",
+                    color = KniTextSecondary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
     }
 }

@@ -28,10 +28,13 @@ pub extern "C" fn Java_com_kni_platform_vpn_NativeVpnEngine_vpn_1engine_1init(
     _class: JClass,
     tun_fd: jint,
     db_path: JString,
+    ca_dir: JString,
+    decrypt: jni::sys::jboolean,
     service: JObject,
 ) -> jlong {
     let result = catch_unwind(AssertUnwindSafe(|| {
         let path: String = env.get_string(&db_path).ok()?.into();
+        let ca: String = env.get_string(&ca_dir).ok()?.into();
         let jvm: JavaVM = env.get_java_vm().ok()?;
         let service_ref = env.new_global_ref(service).ok()?;
 
@@ -47,10 +50,26 @@ pub extern "C" fn Java_com_kni_platform_vpn_NativeVpnEngine_vpn_1engine_1init(
             }
         });
 
-        let engine = Box::new(VpnEngine::new(tun_fd, &path, protect));
+        let engine = Box::new(VpnEngine::new(tun_fd, &path, &ca, decrypt != 0, protect));
         Some(Box::into_raw(engine) as jlong)
     }));
     result.ok().flatten().unwrap_or(0)
+}
+
+#[no_mangle]
+pub extern "C" fn Java_com_kni_platform_vpn_NativeVpnEngine_vpn_1engine_1set_1decrypt(
+    _env: JNIEnv,
+    _class: JClass,
+    engine_ptr: jlong,
+    decrypt: jni::sys::jboolean,
+) {
+    if engine_ptr == 0 {
+        return;
+    }
+    let _ = catch_unwind(AssertUnwindSafe(|| {
+        let engine = unsafe { &*(engine_ptr as *const VpnEngine) };
+        engine.set_decrypt(decrypt != 0);
+    }));
 }
 
 #[no_mangle]

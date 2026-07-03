@@ -33,6 +33,7 @@ import com.kni.platform.vpn.CaptureState
 import com.kni.platform.vpn.KniPaths
 import com.kni.platform.vpn.KniVpnService
 import com.kni.ui.compose.MainScreen
+import com.kni.ui.compose.screens.AppInfo
 import com.kni.ui.compose.screens.DetailData
 import com.kni.ui.compose.screens.LogItemData
 import com.kni.ui.compose.screens.ScreenHooks
@@ -63,7 +64,40 @@ class MainActivity : ComponentActivity() {
     private val notifPermLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    // Lets the user pick a folder/filename and writes the CA there (Files/Downloads).
+    private val saveCertLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/x-x509-ca-cert")) { uri ->
+            if (uri == null) return@registerForActivityResult
+            val file = certManager.getCertificateFile()
+            if (file == null) {
+                toast("Root CA is unavailable")
+                return@registerForActivityResult
+            }
+            try {
+                contentResolver.openOutputStream(uri)?.use { it.write(file.readBytes()) }
+                toast("Saved. Install via Settings → Security → Install a certificate → CA certificate")
+            } catch (e: Exception) {
+                toast("Save failed")
+            }
+        }
+
     private var isBatteryOptimizedState by mutableStateOf(true)
+
+    // Latest settings snapshots, kept current so startVpn() can read them synchronously.
+    @Volatile
+    private var decryptHttpsState = false
+
+    @Volatile
+    private var allowedAppsState: Set<String> = emptySet()
+
+    /** Installed launchable apps, for the capture picker (loaded lazily, once). */
+    private val installedApps by lazy {
+        val pm = packageManager
+        pm.getInstalledApplications(0)
+            .map { AppInfo(it.packageName, pm.getApplicationLabel(it).toString()) }
+            .filter { it.packageName != packageName }
+            .sortedBy { it.label.lowercase() }
+    }
 
     override fun onResume() {
         super.onResume()
@@ -109,9 +143,14 @@ class MainActivity : ComponentActivity() {
                 .collectAsState(initial = SettingsRepository.DEFAULT_STORAGE_MB)
             val domainFilters by settingsRepository.domainFilters
                 .collectAsState(initial = emptyList())
+            val decryptHttps by settingsRepository.decryptHttps.collectAsState(initial = false)
+            val allowedApps by settingsRepository.allowedApps.collectAsState(initial = emptySet())
 
             // Keep the repository's exclusion list in sync with saved filters.
             repository.setExcludedHosts(domainFilters)
+            // Mirror settings into fields so startVpn() can read them synchronously.
+            decryptHttpsState = decryptHttps
+            allowedAppsState = allowedApps
 
             val hooks = ScreenHooks(
                 loadDetail = { id -> viewModel.transactionById(id)?.toDetailData() },
@@ -119,6 +158,7 @@ class MainActivity : ComponentActivity() {
                 settings = SettingsHooks(
                     onInstallCert = ::installCertificate,
                     onExportCert = ::exportCertificate,
+                    onSaveCert = { saveCertLauncher.launch("kni_root_ca.crt") },
                     storageLimitMb = storageLimit,
                     onSetStorageLimitMb = { mb ->
                         lifecycleScope.launch { settingsRepository.setStorageLimitMb(mb) }
@@ -128,7 +168,16 @@ class MainActivity : ComponentActivity() {
                         lifecycleScope.launch { settingsRepository.setDomainFilters(list) }
                     },
                     isBatteryOptimized = isBatteryOptimizedState,
-                    onRequestIgnoreBatteryOptimizations = ::requestIgnoreBatteryOptimizations
+                    onRequestIgnoreBatteryOptimizations = ::requestIgnoreBatteryOptimizations,
+                    decryptHttps = decryptHttps,
+                    onSetDecryptHttps = { enabled ->
+                        lifecycleScope.launch { settingsRepository.setDecryptHttps(enabled) }
+                    },
+                    installedApps = installedApps,
+                    selectedApps = allowedApps,
+                    onSetSelectedApps = { set ->
+                        lifecycleScope.launch { settingsRepository.setAllowedApps(set) }
+                    }
                 )
             )
 
@@ -155,7 +204,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startVpn() {
-        val intent = Intent(this, KniVpnService::class.java).setAction(KniVpnService.ACTION_START)
+        val intent = Intent(this, KniVpnService::class.java)
+            .setAction(KniVpnService.ACTION_START)
+            .putExtra(KniVpnService.EXTRA_DECRYPT, decryptHttpsState)
+            .putExtra(KniVpnService.EXTRA_ALLOWED_APPS, allowedAppsState.toTypedArray())
         ContextCompat.startForegroundService(this, intent)
     }
 
@@ -231,6 +283,7 @@ private fun NetworkTransaction.toLogItem(): LogItemData = LogItemData(
     id = id,
     method = method,
     url = url,
+    host = host,
     status = status,
     duration = "${durationMs}ms",
     size = humanSize(reqSize + respSize)
@@ -248,7 +301,10 @@ private fun NetworkTransaction.toDetailData(): DetailData = DetailData(
     requestHeaders = requestHeaders,
     responseHeaders = responseHeaders,
     requestBody = requestBody,
-    responseBody = responseBody
+    responseBody = responseBody,
+    tlsVersion = tlsVersion,
+    tlsCipher = tlsCipher,
+    tlsCert = tlsCert
 )
 
 private fun humanSize(bytes: Long): String = when {

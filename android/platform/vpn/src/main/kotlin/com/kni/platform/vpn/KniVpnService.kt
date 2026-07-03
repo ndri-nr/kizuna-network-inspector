@@ -34,7 +34,10 @@ class KniVpnService : VpnService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> startCapture()
+            ACTION_START -> startCapture(
+                decrypt = intent.getBooleanExtra(EXTRA_DECRYPT, false),
+                allowedApps = intent.getStringArrayExtra(EXTRA_ALLOWED_APPS)?.toList() ?: emptyList(),
+            )
             ACTION_STOP -> stopCapture()
             ACTION_PAUSE -> {
                 engine?.setPaused(true)
@@ -50,7 +53,7 @@ class KniVpnService : VpnService() {
         return START_STICKY
     }
 
-    private fun startCapture() {
+    private fun startCapture(decrypt: Boolean, allowedApps: List<String>) {
         if (running) return
         CaptureBus.setError(null)
 
@@ -71,6 +74,16 @@ class KniVpnService : VpnService() {
             .addDnsServer("8.8.8.8")
             .setSession("Kizuna Network Inspector")
 
+        // Scope the tunnel to the chosen apps (empty = all apps). Restricting to
+        // the app under test also keeps MITM from breaking other apps' pinned TLS.
+        for (pkg in allowedApps) {
+            try {
+                builder.addAllowedApplication(pkg)
+            } catch (e: android.content.pm.PackageManager.NameNotFoundException) {
+                Log.w(TAG, "allowed app not installed: $pkg")
+            }
+        }
+
         val iface = try {
             builder.establish()
         } catch (e: Exception) {
@@ -84,7 +97,7 @@ class KniVpnService : VpnService() {
         }
         vpnInterface = iface
 
-        val eng = NativeVpnEngine.create(iface.fd, KniPaths.db(this), this)
+        val eng = NativeVpnEngine.create(iface.fd, KniPaths.db(this), KniPaths.caDir(this), decrypt, this)
         if (eng == null) {
             CaptureBus.setError("Native capture engine failed to initialize")
             stopSelfCleanup()
@@ -198,5 +211,7 @@ class KniVpnService : VpnService() {
         const val ACTION_STOP = "com.kni.vpn.STOP"
         const val ACTION_PAUSE = "com.kni.vpn.PAUSE"
         const val ACTION_RESUME = "com.kni.vpn.RESUME"
+        const val EXTRA_DECRYPT = "com.kni.vpn.EXTRA_DECRYPT"
+        const val EXTRA_ALLOWED_APPS = "com.kni.vpn.EXTRA_ALLOWED_APPS"
     }
 }

@@ -41,6 +41,12 @@ fn content_length(headers: &[(String, String)]) -> usize {
         .unwrap_or(0)
 }
 
+fn is_chunked(headers: &[(String, String)]) -> bool {
+    header_value(headers, "transfer-encoding")
+        .map(|v| v.to_ascii_lowercase().contains("chunked"))
+        .unwrap_or(false)
+}
+
 fn collect_headers(src: &[httparse::Header]) -> Vec<(String, String)> {
     src.iter()
         .filter(|h| !h.name.is_empty())
@@ -98,6 +104,62 @@ pub fn parse_response(buf: &[u8]) -> Option<HttpResponseParts> {
         body,
         consumed: head_len + body_len,
     })
+}
+
+/// Total byte length of a *complete* HTTP request message at the front of `buf`,
+/// or `None` if the message is not yet fully present (or cannot be framed, e.g.
+/// a chunked request body). Used to carve one exchange off a keep-alive stream.
+pub fn request_len(buf: &[u8]) -> Option<usize> {
+    let mut headers = [httparse::EMPTY_HEADER; MAX_HEADERS];
+    let mut req = httparse::Request::new(&mut headers);
+    let head_len = match req.parse(buf) {
+        Ok(httparse::Status::Complete(n)) => n,
+        _ => return None,
+    };
+    let hdrs = collect_headers(req.headers);
+    if is_chunked(&hdrs) {
+        return None; // chunked body: not framed here, defer to connection close.
+    }
+    let cl = content_length(&hdrs);
+    let total = head_len + cl;
+    if buf.len() >= total {
+        Some(total)
+    } else {
+        None
+    }
+}
+
+/// Total byte length of a *complete* HTTP response message at the front of `buf`,
+/// or `None` if it is not fully present or is delimited by connection close
+/// (no Content-Length and not chunked) / chunked — those are deferred to teardown.
+pub fn response_len(buf: &[u8]) -> Option<usize> {
+    let mut headers = [httparse::EMPTY_HEADER; MAX_HEADERS];
+    let mut resp = httparse::Response::new(&mut headers);
+    let head_len = match resp.parse(buf) {
+        Ok(httparse::Status::Complete(n)) => n,
+        _ => return None,
+    };
+    let status = resp.code.unwrap_or(0);
+    // Bodyless responses (RFC 7230 §3.3.3): 1xx, 204, 304 carry no body.
+    if (100..200).contains(&status) || status == 204 || status == 304 {
+        return Some(head_len);
+    }
+    let hdrs = collect_headers(resp.headers);
+    if is_chunked(&hdrs) {
+        return None;
+    }
+    match header_value(&hdrs, "content-length") {
+        Some(_) => {
+            let total = head_len + content_length(&hdrs);
+            if buf.len() >= total {
+                Some(total)
+            } else {
+                None
+            }
+        }
+        // No Content-Length and not chunked: body runs until the server closes.
+        None => None,
+    }
 }
 
 /// Extract the SNI host name from a TLS ClientHello record (TLS 1.2/1.3). Returns
@@ -217,6 +279,30 @@ mod tests {
         assert_eq!(r.status, 200);
         assert_eq!(r.reason, "OK");
         assert_eq!(r.body, b"hi");
+    }
+
+    #[test]
+    fn frames_complete_and_incomplete_messages() {
+        let full = b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nhi";
+        assert_eq!(response_len(full), Some(full.len()));
+        // Body not fully arrived yet.
+        let partial = b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhi";
+        assert_eq!(response_len(partial), None);
+        // 204 has no body.
+        let no_body = b"HTTP/1.1 204 No Content\r\n\r\n";
+        assert_eq!(response_len(no_body), Some(no_body.len()));
+        // Body-until-close is not frameable mid-stream.
+        let until_close = b"HTTP/1.1 200 OK\r\n\r\nsome bytes";
+        assert_eq!(response_len(until_close), None);
+        // Two pipelined responses: only the first is carved off.
+        let mut two = full.to_vec();
+        two.extend_from_slice(full);
+        assert_eq!(response_len(&two), Some(full.len()));
+
+        let req = b"GET / HTTP/1.1\r\nHost: h\r\n\r\n";
+        assert_eq!(request_len(req), Some(req.len()));
+        let req_post = b"POST /x HTTP/1.1\r\nContent-Length: 3\r\n\r\nabc";
+        assert_eq!(request_len(req_post), Some(req_post.len()));
     }
 
     #[test]

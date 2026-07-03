@@ -15,5 +15,8 @@ data class NetworkTransaction(
     val requestHeaders: String,
     val responseHeaders: String,
     val requestBody: String,
-    val responseBody: String
+    val responseBody: String,
+    val tlsVersion: String,
+    val tlsCipher: String,
+    val tlsCert: String
 )

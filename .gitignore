@@ -19,3 +19,7 @@ Thumbs.db
 **/target/
 **/local.properties
 **/.cxx/
+
+# Agents
+.agents/
+skills-lock.json
