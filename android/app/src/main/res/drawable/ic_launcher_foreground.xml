@@ -4,58 +4,102 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Background -->
-    <path
-        android:fillColor="#0B1F3A"
-        android:pathData="M0,0H108V108H0Z"/>
+    <!-- Scale down all graphic elements to 75% to stay safely within Android's -->
+    <!-- 72dp adaptive icon safe zone (preventing cropping on circle/squircle masks). -->
+    <!-- Optimised for WHITE background: replaced light/white elements with dark slate (#0B141A) -->
+    <group
+        android:scaleX="0.75"
+        android:scaleY="0.75"
+        android:pivotX="54"
+        android:pivotY="54">
 
-    <!-- K Vertical Line -->
-    <path
-        android:strokeColor="#00D4FF"
-        android:strokeWidth="4"
-        android:strokeLineCap="round"
-        android:pathData="M38,24 L38,84"/>
+        <!-- Outer Decorative Radar Pulse (Subtle) -->
+        <path
+            android:strokeColor="#1F00A884"
+            android:strokeWidth="1.5"
+            android:fillColor="#00000000"
+            android:pathData="M 54,8 A 46,46 0 1,1 53.99,8 Z" />
 
-    <!-- K Upper Arm -->
-    <path
-        android:strokeColor="#00D4FF"
-        android:strokeWidth="4"
-        android:strokeLineCap="round"
-        android:pathData="M38,54 L72,28"/>
+        <path
+            android:strokeColor="#0F00A884"
+            android:strokeWidth="1"
+            android:fillColor="#00000000"
+            android:pathData="M 54,18 A 36,36 0 1,1 53.99,18 Z" />
 
-    <!-- K Lower Arm -->
-    <path
-        android:strokeColor="#00D4FF"
-        android:strokeWidth="4"
-        android:strokeLineCap="round"
-        android:pathData="M38,54 L72,80"/>
+        <!-- Glassmorphic Shield Base (Teal Fill + Glowing Outline) -->
+        <path
+            android:strokeColor="#00A884"
+            android:strokeWidth="4"
+            android:strokeLineJoin="round"
+            android:fillColor="#1A00A884"
+            android:pathData="M54,22 L82,34 L82,60 C82,74 54,84 54,84 C54,84 26,74 26,60 L26,34 Z"/>
 
-    <!-- Network Nodes -->
-    <path
-        android:fillColor="#00D4FF"
-        android:pathData="M38,20 A4,4 0 1,1 37.9,20"/>
+        <!-- Intercept Radar Waves (Darker teal and slate for white background contrast) -->
+        <path
+            android:strokeColor="#008069"
+            android:strokeWidth="2.5"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000"
+            android:pathData="M38,68 A 18,18 0 0,1 70,68" />
 
-    <path
-        android:fillColor="#00D4FF"
-        android:pathData="M38,88 A4,4 0 1,1 37.9,88"/>
+        <path
+            android:strokeColor="#0B141A"
+            android:strokeWidth="2.5"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000"
+            android:pathData="M44,68 A 11,11 0 0,1 64,68" />
 
-    <path
-        android:fillColor="#00D4FF"
-        android:pathData="M38,54 A4.5,4.5 0 1,1 37.9,54"/>
+        <!-- Network Connection Lines (Dark Slate) -->
+        <path
+            android:strokeColor="#0B141A"
+            android:strokeWidth="3"
+            android:strokeLineCap="round"
+            android:pathData="M54,38 L42,58"/>
 
-    <path
-        android:fillColor="#00D4FF"
-        android:pathData="M72,28 A4,4 0 1,1 71.9,28"/>
+        <path
+            android:strokeColor="#0B141A"
+            android:strokeWidth="3"
+            android:strokeLineCap="round"
+            android:pathData="M54,38 L66,58"/>
 
-    <path
-        android:fillColor="#00D4FF"
-        android:pathData="M72,80 A4,4 0 1,1 71.9,80"/>
+        <path
+            android:strokeColor="#0B141A"
+            android:strokeWidth="3"
+            android:strokeLineCap="round"
+            android:pathData="M42,58 L66,58"/>
 
-    <!-- Radar Ring -->
-    <path
-        android:strokeColor="#2F80ED"
-        android:strokeWidth="2"
-        android:fillColor="@android:color/transparent"
-        android:pathData="M54,24 A30,30 0 1,1 54,84 A30,30 0 1,1 54,24"/>
+        <path
+            android:strokeColor="#0B141A"
+            android:strokeWidth="3"
+            android:strokeLineCap="round"
+            android:pathData="M54,38 L54,72"/>
+
+        <!-- Top Node -->
+        <path
+            android:fillColor="#00A884"
+            android:strokeColor="#0B141A"
+            android:strokeWidth="2.5"
+            android:pathData="M54,38 m-5.5,0 a5.5,5.5 0 1,1 11,0 a5.5,5.5 0 1,1 -11,0" />
+
+        <!-- Left Node -->
+        <path
+            android:fillColor="#00A884"
+            android:strokeColor="#0B141A"
+            android:strokeWidth="2.5"
+            android:pathData="M42,58 m-5.5,0 a5.5,5.5 0 1,1 11,0 a5.5,5.5 0 1,1 -11,0" />
+
+        <!-- Right Node -->
+        <path
+            android:fillColor="#00A884"
+            android:strokeColor="#0B141A"
+            android:strokeWidth="2.5"
+            android:pathData="M66,58 m-5.5,0 a5.5,5.5 0 1,1 11,0 a5.5,5.5 0 1,1 -11,0" />
+
+        <!-- Bottom Inspector Probe Node (Dark Slate) -->
+        <path
+            android:fillColor="#0B141A"
+            android:pathData="M54,72 m-6.5,0 a6.5,6.5 0 1,1 13,0 a6.5,6.5 0 1,1 -13,0" />
+
+    </group>
 
 </vector>
