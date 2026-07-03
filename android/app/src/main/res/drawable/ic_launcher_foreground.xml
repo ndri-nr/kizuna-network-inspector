@@ -1,0 +1,61 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Background -->
+    <path
+        android:fillColor="#0B1F3A"
+        android:pathData="M0,0H108V108H0Z"/>
+
+    <!-- K Vertical Line -->
+    <path
+        android:strokeColor="#00D4FF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M38,24 L38,84"/>
+
+    <!-- K Upper Arm -->
+    <path
+        android:strokeColor="#00D4FF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M38,54 L72,28"/>
+
+    <!-- K Lower Arm -->
+    <path
+        android:strokeColor="#00D4FF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M38,54 L72,80"/>
+
+    <!-- Network Nodes -->
+    <path
+        android:fillColor="#00D4FF"
+        android:pathData="M38,20 A4,4 0 1,1 37.9,20"/>
+
+    <path
+        android:fillColor="#00D4FF"
+        android:pathData="M38,88 A4,4 0 1,1 37.9,88"/>
+
+    <path
+        android:fillColor="#00D4FF"
+        android:pathData="M38,54 A4.5,4.5 0 1,1 37.9,54"/>
+
+    <path
+        android:fillColor="#00D4FF"
+        android:pathData="M72,28 A4,4 0 1,1 71.9,28"/>
+
+    <path
+        android:fillColor="#00D4FF"
+        android:pathData="M72,80 A4,4 0 1,1 71.9,80"/>
+
+    <!-- Radar Ring -->
+    <path
+        android:strokeColor="#2F80ED"
+        android:strokeWidth="2"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M54,24 A30,30 0 1,1 54,84 A30,30 0 1,1 54,24"/>
+
+</vector>

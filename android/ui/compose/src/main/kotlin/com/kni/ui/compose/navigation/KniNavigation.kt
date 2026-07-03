@@ -7,8 +7,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.kni.ui.compose.screens.*
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 
 @Composable
 fun KniNavigation(
@@ -16,7 +14,8 @@ fun KniNavigation(
     searchQuery: String,
     transactions: List<LogItemData>,
     onSearchQueryChanged: (String) -> Unit,
-    onToggleCapture: () -> Unit
+    onToggleCapture: () -> Unit,
+    hooks: ScreenHooks
 ) {
     val navController = rememberNavController()
 
@@ -34,17 +33,24 @@ fun KniNavigation(
             )
         }
         composable("settings") {
-            SettingsScreen(onBack = { navController.popBackStack() })
+            SettingsScreen(onBack = { navController.popBackStack() }, hooks = hooks.settings)
         }
         composable("diagnostics") {
-            DiagnosticsScreen(onBack = { navController.popBackStack() })
+            DiagnosticsScreen(
+                onBack = { navController.popBackStack() },
+                loadDiagnostics = hooks.loadDiagnostics
+            )
         }
         composable(
             route = "detail/{exchangeId}",
             arguments = listOf(navArgument("exchangeId") { type = NavType.StringType })
         ) { backStackEntry ->
             val exchangeId = backStackEntry.arguments?.getString("exchangeId") ?: ""
-            DetailScreen(exchangeId = exchangeId, onBack = { navController.popBackStack() })
+            DetailScreen(
+                exchangeId = exchangeId,
+                onBack = { navController.popBackStack() },
+                loadDetail = hooks.loadDetail
+            )
         }
     }
 }

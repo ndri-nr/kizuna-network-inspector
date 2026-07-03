@@ -4,15 +4,22 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kni.app.data.NetworkTransaction
 import com.kni.app.data.TransactionRepository
+import com.kni.platform.vpn.CaptureBus
+import com.kni.platform.vpn.CaptureState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 class CaptureViewModel(private val repository: TransactionRepository) : ViewModel() {
-    private val _isCapturing = MutableStateFlow(false)
-    val isCapturing: StateFlow<Boolean> = _isCapturing
+
+    /** Mirrors the service's authoritative capture state. */
+    val captureState: StateFlow<CaptureState> = CaptureBus.state
+    val packets: StateFlow<Long> = CaptureBus.packets
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
@@ -24,19 +31,31 @@ class CaptureViewModel(private val repository: TransactionRepository) : ViewMode
         if (query.isBlank()) {
             transactions
         } else {
-            transactions.filter { 
-                it.url.contains(query, ignoreCase = true) || 
-                it.method.contains(query, ignoreCase = true) 
+            transactions.filter {
+                it.url.contains(query, ignoreCase = true) ||
+                    it.method.contains(query, ignoreCase = true) ||
+                    it.host.contains(query, ignoreCase = true)
             }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun toggleCapture() {
-        _isCapturing.value = !_isCapturing.value
-        // Logic to start/stop VpnService will be triggered by activity observing this
+    init {
+        // Poll the store for freshly captured exchanges.
+        viewModelScope.launch {
+            while (isActive) {
+                repository.refresh()
+                delay(POLL_INTERVAL_MS)
+            }
+        }
     }
 
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
+    }
+
+    fun transactionById(id: String): NetworkTransaction? = repository.getById(id)
+
+    companion object {
+        private const val POLL_INTERVAL_MS = 1000L
     }
 }

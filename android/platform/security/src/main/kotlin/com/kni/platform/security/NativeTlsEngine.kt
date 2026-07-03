@@ -1,27 +1,32 @@
 package com.kni.platform.security
 
+/**
+ * JVM handle to the native Root CA. The CA keypair is generated and persisted in
+ * Rust (`tls-core`); only the public certificate PEM is exposed here so the user
+ * can install it as a trusted root. The private key never crosses this boundary.
+ */
 class NativeTlsEngine private constructor(private val nativePtr: Long) {
     companion object {
         init {
             System.loadLibrary("kni_rust_core")
         }
-        fun create(rootCaPem: ByteArray): NativeTlsEngine {
-            return NativeTlsEngine(tls_engine_new(rootCaPem))
+
+        /** @param caDir directory where the CA is persisted (created if absent). */
+        fun create(caDir: String): NativeTlsEngine? {
+            val ptr = tls_engine_new(caDir)
+            return if (ptr != 0L) NativeTlsEngine(ptr) else null
         }
 
         @JvmStatic
-        private external fun tls_engine_new(caPem: ByteArray): Long
+        private external fun tls_engine_new(caDir: String): Long
+        @JvmStatic
+        private external fun tls_engine_get_ca_pem(enginePtr: Long): ByteArray
         @JvmStatic
         private external fun tls_engine_free(enginePtr: Long)
-        @JvmStatic
-        private external fun tls_engine_intercept_handshake(enginePtr: Long, connId: Long, sni: String): Int
     }
 
-    fun interceptHandshake(connectionId: Long, sni: String): Int {
-        return tls_engine_intercept_handshake(nativePtr, connectionId, sni)
-    }
+    /** PEM bytes of the Root CA certificate. */
+    fun caCertPem(): ByteArray = tls_engine_get_ca_pem(nativePtr)
 
-    fun destroy() {
-        tls_engine_free(nativePtr)
-    }
+    fun destroy() = tls_engine_free(nativePtr)
 }

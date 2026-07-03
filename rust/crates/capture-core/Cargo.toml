@@ -6,3 +6,13 @@ edition = "2021"
 [dependencies]
 pnet = { workspace = true }
 serde = { workspace = true }
+serde_cbor = { workspace = true }
+transport-core = { path = "../transport-core" }
+parser-core = { path = "../parser-core" }
+tls-core = { path = "../tls-core" }
+storage-core = { path = "../storage-core" }
+smoltcp = { version = "0.13.1", default-features = false, features = ["std", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp"] }
+socket2 = "0.6.4"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
