@@ -23,7 +23,9 @@ class SettingsHooks(
     val storageLimitMb: Int,
     val onSetStorageLimitMb: (Int) -> Unit,
     val domainFilters: List<String>,
-    val onSetDomainFilters: (List<String>) -> Unit
+    val onSetDomainFilters: (List<String>) -> Unit,
+    val isBatteryOptimized: Boolean,
+    val onRequestIgnoreBatteryOptimizations: () -> Unit
 )
 
 /** Bundle of cross-screen data providers/actions supplied by the app layer. */

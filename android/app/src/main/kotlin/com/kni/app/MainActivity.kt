@@ -1,9 +1,13 @@
 package com.kni.app
 
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.security.KeyChain
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -12,6 +16,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
@@ -57,6 +63,40 @@ class MainActivity : ComponentActivity() {
     private val notifPermLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    private var isBatteryOptimizedState by mutableStateOf(true)
+
+    override fun onResume() {
+        super.onResume()
+        updateBatteryOptimizationState()
+    }
+
+    private fun updateBatteryOptimizationState() {
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        isBatteryOptimizedState = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            !pm.isIgnoringBatteryOptimizations(packageName)
+        } else {
+            false
+        }
+    }
+
+    private fun requestIgnoreBatteryOptimizations() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            } catch (e: Exception) {
+                try {
+                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                    startActivity(intent)
+                } catch (ex: Exception) {
+                    toast("Cannot open battery optimization settings")
+                }
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestNotificationPermission()
@@ -86,7 +126,9 @@ class MainActivity : ComponentActivity() {
                     domainFilters = domainFilters,
                     onSetDomainFilters = { list ->
                         lifecycleScope.launch { settingsRepository.setDomainFilters(list) }
-                    }
+                    },
+                    isBatteryOptimized = isBatteryOptimizedState,
+                    onRequestIgnoreBatteryOptimizations = ::requestIgnoreBatteryOptimizations
                 )
             )
 

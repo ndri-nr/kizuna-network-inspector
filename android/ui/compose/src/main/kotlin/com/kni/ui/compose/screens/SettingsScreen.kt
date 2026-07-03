@@ -60,6 +60,16 @@ fun SettingsScreen(onBack: () -> Unit, hooks: SettingsHooks) {
                 actionText = "Manage",
                 onClick = { showFiltersDialog = true }
             )
+            SettingsItem(
+                title = "Background Protection",
+                description = if (hooks.isBatteryOptimized)
+                    "Battery optimization is active. The capture service might be killed when running in the background."
+                else
+                    "Protected: Battery optimization is disabled. Kizuna will run reliably in the background.",
+                actionText = if (hooks.isBatteryOptimized) "Configure" else "Protected",
+                onClick = hooks.onRequestIgnoreBatteryOptimizations,
+                enabled = hooks.isBatteryOptimized
+            )
         }
     }
 
@@ -120,7 +130,8 @@ fun SettingsItem(
     actionText: String,
     onClick: () -> Unit,
     secondaryText: String? = null,
-    onSecondary: (() -> Unit)? = null
+    onSecondary: (() -> Unit)? = null,
+    enabled: Boolean = true
 ) {
     Column {
         Text(title, color = KniTextPrimary, style = MaterialTheme.typography.titleMedium)
@@ -129,9 +140,13 @@ fun SettingsItem(
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
                 onClick = onClick,
-                colors = ButtonDefaults.buttonColors(containerColor = KniAccent)
+                enabled = enabled,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = KniAccent,
+                    disabledContainerColor = KniTextSecondary.copy(alpha = 0.2f)
+                )
             ) {
-                Text(actionText)
+                Text(actionText, color = if (enabled) KniTextPrimary else KniTextSecondary)
             }
             if (secondaryText != null && onSecondary != null) {
                 OutlinedButton(onClick = onSecondary) { Text(secondaryText) }

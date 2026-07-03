@@ -4,6 +4,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -52,7 +53,16 @@ class KniVpnService : VpnService() {
     private fun startCapture() {
         if (running) return
         CaptureBus.setError(null)
-        startForeground(NOTIF_ID, buildNotification("Starting…"))
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIF_ID,
+                buildNotification("Starting…"),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+            )
+        } else {
+            startForeground(NOTIF_ID, buildNotification("Starting…"))
+        }
 
         val builder = Builder()
             .setMtu(1500)
