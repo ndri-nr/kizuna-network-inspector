@@ -61,8 +61,16 @@ class TransactionRepository(context: Context) {
     fun count(): Long = storage?.count() ?: 0
 
     fun clear() {
+        storage?.deleteAll()
         _transactions.value = emptyList()
         seen.clear()
+    }
+
+    fun deleteByIds(ids: List<String>) {
+        if (ids.isEmpty()) return
+        storage?.deleteByIds(ids)
+        _transactions.value = _transactions.value.filter { it.id !in ids }
+        seen.removeAll(ids.toSet())
     }
 
     private fun parse(o: JSONObject): NetworkTransaction = NetworkTransaction(

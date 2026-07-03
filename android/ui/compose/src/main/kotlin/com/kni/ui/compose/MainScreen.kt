@@ -17,6 +17,8 @@ fun MainScreen(
     onSelectedMethodsChanged: (Set<String>) -> Unit,
     onSelectedHostsChanged: (Set<String>) -> Unit,
     onResetFilters: () -> Unit,
+    onDeleteTransactions: (List<String>) -> Unit,
+    onClearAllTransactions: () -> Unit,
     onToggleCapture: () -> Unit,
     hooks: ScreenHooks
 ) {
@@ -31,6 +33,8 @@ fun MainScreen(
             onSelectedMethodsChanged = onSelectedMethodsChanged,
             onSelectedHostsChanged = onSelectedHostsChanged,
             onResetFilters = onResetFilters,
+            onDeleteTransactions = onDeleteTransactions,
+            onClearAllTransactions = onClearAllTransactions,
             onToggleCapture = onToggleCapture,
             hooks = hooks
         )

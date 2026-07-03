@@ -73,6 +73,14 @@ class CaptureViewModel(private val repository: TransactionRepository) : ViewMode
         _selectedHosts.value = emptySet()
     }
 
+    fun deleteTransactions(ids: List<String>) {
+        repository.deleteByIds(ids)
+    }
+
+    fun clearAllTransactions() {
+        repository.clear()
+    }
+
     fun transactionById(id: String): NetworkTransaction? = repository.getById(id)
 
     companion object {

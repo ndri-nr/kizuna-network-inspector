@@ -23,6 +23,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.filled.Delete
 import com.kni.ui.compose.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,56 +42,105 @@ fun FeedScreen(
     onSelectedMethodsChanged: (Set<String>) -> Unit,
     onSelectedHostsChanged: (Set<String>) -> Unit,
     onResetFilters: () -> Unit,
+    onDeleteTransactions: (List<String>) -> Unit,
+    onClearAllTransactions: () -> Unit,
     onToggleCapture: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToDiagnostics: () -> Unit,
     onNavigateToDetail: (String) -> Unit
 ) {
+    var isSelectionMode by remember { mutableStateOf(false) }
+    var selectedItemIds by remember { mutableStateOf(setOf<String>()) }
+    var showDeleteAllConfirm by remember { mutableStateOf(false) }
+    var showDeleteSelectedConfirm by remember { mutableStateOf(false) }
+
+    if (isSelectionMode) {
+        BackHandler {
+            selectedItemIds = emptySet()
+            isSelectionMode = false
+        }
+    }
+
+    val methods = remember(transactions) {
+        transactions.map { it.method }.filter { it.isNotBlank() }.distinct().sorted()
+    }
+    val hosts = remember(transactions) {
+        transactions.map { it.host }.filter { it.isNotBlank() }.distinct().sorted()
+    }
+    val visible = transactions.filter {
+        (selectedMethods.isEmpty() || it.method in selectedMethods) &&
+            (selectedHosts.isEmpty() || it.host in selectedHosts)
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Live Capture", style = MaterialTheme.typography.titleLarge) },
-                actions = {
-                    IconButton(onClick = onNavigateToDiagnostics) {
-                        Icon(Icons.Default.Info, contentDescription = "Diagnostics")
-                    }
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = KniHeader,
-                    titleContentColor = KniOnHeader,
-                    actionIconContentColor = KniOnHeader
+            if (isSelectionMode) {
+                TopAppBar(
+                    title = { Text("${selectedItemIds.size} selected", style = MaterialTheme.typography.titleLarge) },
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            selectedItemIds = emptySet()
+                            isSelectionMode = false
+                        }) {
+                            Icon(Icons.Default.Close, contentDescription = "Cancel Selection")
+                        }
+                    },
+                    actions = {
+                        IconButton(
+                            onClick = { showDeleteSelectedConfirm = true },
+                            enabled = selectedItemIds.isNotEmpty()
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete Selected")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = KniHeader,
+                        titleContentColor = KniOnHeader,
+                        navigationIconContentColor = KniOnHeader,
+                        actionIconContentColor = KniOnHeader
+                    )
                 )
-            )
+            } else {
+                TopAppBar(
+                    title = { Text("Live Capture", style = MaterialTheme.typography.titleLarge) },
+                    actions = {
+                        if (visible.isNotEmpty()) {
+                            IconButton(onClick = { showDeleteAllConfirm = true }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete All", tint = KniOnHeader)
+                            }
+                        }
+                        IconButton(onClick = onNavigateToDiagnostics) {
+                            Icon(Icons.Default.Info, contentDescription = "Diagnostics")
+                        }
+                        IconButton(onClick = onNavigateToSettings) {
+                            Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = KniHeader,
+                        titleContentColor = KniOnHeader,
+                        actionIconContentColor = KniOnHeader
+                    )
+                )
+            }
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onToggleCapture,
-                containerColor = if (isCapturing) KniError else KniAccent,
-                contentColor = Color.White
-            ) {
-                Icon(
-                    if (isCapturing) Icons.Default.Close else Icons.Default.PlayArrow,
-                    contentDescription = if (isCapturing) "Stop" else "Start"
-                )
+            if (!isSelectionMode) {
+                FloatingActionButton(
+                    onClick = onToggleCapture,
+                    containerColor = if (isCapturing) KniError else KniAccent,
+                    contentColor = Color.White
+                ) {
+                    Icon(
+                        if (isCapturing) Icons.Default.Close else Icons.Default.PlayArrow,
+                        contentDescription = if (isCapturing) "Stop" else "Start"
+                    )
+                }
             }
         },
         containerColor = KniBgPrimary
     ) { padding ->
         var showHostDialog by remember { mutableStateOf(false) }
-
-        val methods = remember(transactions) {
-            transactions.map { it.method }.filter { it.isNotBlank() }.distinct().sorted()
-        }
-        val hosts = remember(transactions) {
-            transactions.map { it.host }.filter { it.isNotBlank() }.distinct().sorted()
-        }
-        val visible = transactions.filter {
-            (selectedMethods.isEmpty() || it.method in selectedMethods) &&
-                (selectedHosts.isEmpty() || it.host in selectedHosts)
-        }
 
         Column(modifier = Modifier.padding(padding)) {
             // Search Box
@@ -167,6 +221,7 @@ fun FeedScreen(
             ) {
                 items(visible.size) { index ->
                     val item = visible[index]
+                    val isSelected = item.id in selectedItemIds
                     LogFeedItem(
                         method = item.method,
                         url = item.url,
@@ -174,7 +229,27 @@ fun FeedScreen(
                         status = item.status,
                         duration = item.duration,
                         size = item.size,
-                        onClick = { onNavigateToDetail(item.id) }
+                        isSelected = isSelected,
+                        isSelectionMode = isSelectionMode,
+                        onClick = {
+                            if (isSelectionMode) {
+                                selectedItemIds = if (isSelected) {
+                                    val newSet = selectedItemIds - item.id
+                                    if (newSet.isEmpty()) isSelectionMode = false
+                                    newSet
+                                } else {
+                                    selectedItemIds + item.id
+                                }
+                            } else {
+                                onNavigateToDetail(item.id)
+                            }
+                        },
+                        onLongClick = {
+                            if (!isSelectionMode) {
+                                isSelectionMode = true
+                                selectedItemIds = setOf(item.id)
+                            }
+                        }
                     )
                 }
             }
@@ -189,6 +264,56 @@ fun FeedScreen(
                 onConfirm = {
                     onSelectedHostsChanged(it)
                     showHostDialog = false
+                }
+            )
+        }
+
+        if (showDeleteAllConfirm) {
+            AlertDialog(
+                onDismissRequest = { showDeleteAllConfirm = false },
+                title = { Text("Delete all records?") },
+                text = { Text("This will permanently clear all captured network traffic from the device.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            onClearAllTransactions()
+                            showDeleteAllConfirm = false
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = KniError)
+                    ) {
+                        Text("Delete All")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteAllConfirm = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        if (showDeleteSelectedConfirm) {
+            AlertDialog(
+                onDismissRequest = { showDeleteSelectedConfirm = false },
+                title = { Text("Delete selected records?") },
+                text = { Text("Are you sure you want to delete the ${selectedItemIds.size} selected records?") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            onDeleteTransactions(selectedItemIds.toList())
+                            selectedItemIds = emptySet()
+                            isSelectionMode = false
+                            showDeleteSelectedConfirm = false
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = KniError)
+                    ) {
+                        Text("Delete")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteSelectedConfirm = false }) {
+                        Text("Cancel")
+                    }
                 }
             )
         }
@@ -277,7 +402,7 @@ fun methodColor(method: String): Color = when (method.uppercase()) {
     else -> Color(0xFF9E9E9E)       // grey
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun LogFeedItem(
     method: String,
@@ -286,12 +411,21 @@ fun LogFeedItem(
     status: Int,
     duration: String,
     size: String,
-    onClick: () -> Unit
+    isSelected: Boolean,
+    isSelectionMode: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
 ) {
     Card(
-        onClick = onClick,
-        colors = CardDefaults.cardColors(containerColor = KniBgSurface),
-        shape = RoundedCornerShape(8.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) KniAccent.copy(alpha = 0.15f) else KniBgSurface
+        ),
+        shape = RoundedCornerShape(8.dp),
+        border = if (isSelected) BorderStroke(1.dp, KniAccent) else null,
+        modifier = Modifier.combinedClickable(
+            onClick = onClick,
+            onLongClick = onLongClick
+        )
     ) {
         Row(
             modifier = Modifier
@@ -299,6 +433,13 @@ fun LogFeedItem(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (isSelectionMode) {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = null,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+            }
             // Method Badge
             val mColor = methodColor(method)
             Surface(

@@ -231,6 +231,27 @@ impl StorageEngine {
         self.conn
             .query_row("SELECT COUNT(*) FROM http_exchanges;", [], |r| r.get(0))
     }
+
+    pub fn delete_by_ids(&self, ids: &[String]) -> Result<()> {
+        if ids.is_empty() {
+            return Ok(());
+        }
+        let placeholders: Vec<String> = ids.iter().map(|_| "?".to_string()).collect();
+        let sql = format!(
+            "DELETE FROM http_exchanges WHERE id IN ({});",
+            placeholders.join(",")
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+        let params_slice: Vec<&dyn rusqlite::ToSql> = ids.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+        stmt.execute(rusqlite::params_from_iter(params_slice))?;
+        Ok(())
+    }
+
+    pub fn delete_all(&self) -> Result<()> {
+        self.conn.execute("DELETE FROM http_exchanges;", [])?;
+        self.conn.execute("DELETE FROM capture_sessions;", [])?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -295,5 +316,29 @@ mod tests {
         let bytes = serde_cbor::to_vec(&ex).unwrap();
         let back: HttpExchange = serde_cbor::from_slice(&bytes).unwrap();
         assert_eq!(ex, back);
+    }
+
+    #[test]
+    fn test_deletion() {
+        let dir = std::env::temp_dir().join("kni_storage_deletion_test");
+        let _ = std::fs::remove_dir_all(&dir);
+        let db = dir.join("test.db");
+        let engine = StorageEngine::new(db.to_str().unwrap());
+
+        engine.write_exchange(&sample("a", 100)).unwrap();
+        engine.write_exchange(&sample("b", 200)).unwrap();
+        engine.write_exchange(&sample("c", 300)).unwrap();
+        assert_eq!(engine.count().unwrap(), 3);
+
+        engine.delete_by_ids(&["a".to_string(), "c".to_string()]).unwrap();
+        assert_eq!(engine.count().unwrap(), 1);
+        assert!(engine.read_by_id("a").unwrap().is_none());
+        assert!(engine.read_by_id("c").unwrap().is_none());
+        assert!(engine.read_by_id("b").unwrap().is_some());
+
+        engine.delete_all().unwrap();
+        assert_eq!(engine.count().unwrap(), 0);
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -19,6 +19,8 @@ fun KniNavigation(
     onSelectedMethodsChanged: (Set<String>) -> Unit,
     onSelectedHostsChanged: (Set<String>) -> Unit,
     onResetFilters: () -> Unit,
+    onDeleteTransactions: (List<String>) -> Unit,
+    onClearAllTransactions: () -> Unit,
     onToggleCapture: () -> Unit,
     hooks: ScreenHooks
 ) {
@@ -36,6 +38,8 @@ fun KniNavigation(
                 onSelectedMethodsChanged = onSelectedMethodsChanged,
                 onSelectedHostsChanged = onSelectedHostsChanged,
                 onResetFilters = onResetFilters,
+                onDeleteTransactions = onDeleteTransactions,
+                onClearAllTransactions = onClearAllTransactions,
                 onToggleCapture = onToggleCapture,
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToDiagnostics = { navController.navigate("diagnostics") },

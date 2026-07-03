@@ -193,6 +193,8 @@ class MainActivity : ComponentActivity() {
                 onSelectedMethodsChanged = { viewModel.onSelectedMethodsChanged(it) },
                 onSelectedHostsChanged = { viewModel.onSelectedHostsChanged(it) },
                 onResetFilters = { viewModel.resetFilters() },
+                onDeleteTransactions = { viewModel.deleteTransactions(it) },
+                onClearAllTransactions = { viewModel.clearAllTransactions() },
                 onToggleCapture = ::toggleCapture,
                 hooks = hooks
             )

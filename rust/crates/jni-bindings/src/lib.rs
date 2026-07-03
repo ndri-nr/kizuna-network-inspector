@@ -364,6 +364,53 @@ pub extern "C" fn Java_com_kni_platform_storage_NativeStorageEngine_storage_1eng
     .unwrap_or(0)
 }
 
+#[no_mangle]
+pub extern "C" fn Java_com_kni_platform_storage_NativeStorageEngine_storage_1engine_1delete_1by_1ids(
+    mut env: JNIEnv,
+    _class: JClass,
+    engine_ptr: jlong,
+    ids_json: JString,
+) -> jint {
+    if engine_ptr == 0 {
+        return -1;
+    }
+    let r = catch_unwind(AssertUnwindSafe(|| {
+        let engine = unsafe { &*(engine_ptr as *const StorageEngine) };
+        let ids_json_str: String = match env.get_string(&ids_json) {
+            Ok(s) => s.into(),
+            Err(_) => return -1,
+        };
+        let ids: Vec<String> = match serde_json::from_str(&ids_json_str) {
+            Ok(v) => v,
+            Err(_) => return -2,
+        };
+        match engine.delete_by_ids(&ids) {
+            Ok(_) => 0,
+            Err(_) => -3,
+        }
+    }));
+    r.unwrap_or(-4)
+}
+
+#[no_mangle]
+pub extern "C" fn Java_com_kni_platform_storage_NativeStorageEngine_storage_1engine_1delete_1all(
+    _env: JNIEnv,
+    _class: JClass,
+    engine_ptr: jlong,
+) -> jint {
+    if engine_ptr == 0 {
+        return -1;
+    }
+    let r = catch_unwind(AssertUnwindSafe(|| {
+        let engine = unsafe { &*(engine_ptr as *const StorageEngine) };
+        match engine.delete_all() {
+            Ok(_) => 0,
+            Err(_) => -2,
+        }
+    }));
+    r.unwrap_or(-3)
+}
+
 // ==========================================
 // SearchEngine
 // ==========================================
